@@ -1,11 +1,11 @@
 const firebaseConfig = {
-    apiKey: "AIzaSyDummyKeyHere", // لێرە کلیلی فایەربەیسەکەت بنووسە
-    authDomain: "kozher-killer.firebaseapp.com",
+    apiKey: "AIzaSyBJC7btI1oJpV867yOaWIiCVHGh58jYXlQ", // لێرە کلیلی فایەربەیسەکەت بنووسە
+    authDomain: "kozhir-killer.firebaseapp.com",
     databaseURL: "https://kozhir-killer-default-rtdb.firebaseio.com", // 👈 ئەو بەستەرەی لێرە داتنابوو، دەبێت لای databaseURL بێت
-    projectId: "kozher-killer",
-    storageBucket: "kozher-killer.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:12345:web:abcdef"
+    projectId: "kozhir-killer",
+    storageBucket: "kozhir-killer.firebasestorage.app",
+    messagingSenderId: "697346679054",
+    appId: "1:697346679054:web:968c8499db5d019136375f"
 };
 
 // ڕووناککردنەوەی فایەربەیس
