@@ -1,7 +1,8 @@
+// ⚠️ لێرەدا کۆدی بەستنەوەی فایەربەیسەکەی خۆت دابنێ ⚠️
 const firebaseConfig = {
-    apiKey: "AIzaSyBJC7btI1oJpV867yOaWIiCVHGh58jYXlQ", // لێرە کلیلی فایەربەیسەکەت بنووسە
+    apiKey: "AIzaSyBJC7btI1oJpV867yOaWIiCVHGh58jYXlQ", 
     authDomain: "kozhir-killer.firebaseapp.com",
-    databaseURL: "https://kozhir-killer-default-rtdb.firebaseio.com", // 👈 ئەو بەستەرەی لێرە داتنابوو، دەبێت لای databaseURL بێت
+    databaseURL: "https://kozhir-killer-default-rtdb.firebaseio.com", 
     projectId: "kozhir-killer",
     storageBucket: "kozhir-killer.firebasestorage.app",
     messagingSenderId: "697346679054",
@@ -46,7 +47,6 @@ document.getElementById('btn-create-mode').addEventListener('click', () => {
     mainScreen.classList.add('hidden');
     hostScreen.classList.remove('hidden');
     
-    // پاشەکەوتکردن لە فایەربەیس
     database.ref('rooms/' + roomCode).set({
         status: "waiting",
         killerCount: 1,
@@ -54,7 +54,6 @@ document.getElementById('btn-create-mode').addEventListener('click', () => {
         location: ""
     });
     
-    // زیادکردنی هۆست وەک یاریزانی یەکەم
     database.ref('rooms/' + roomCode + '/players/' + myId).set({ name: myName, role: "" });
     listenToPlayers();
     listenToGameStatus();
@@ -109,7 +108,7 @@ function listenToPlayers() {
     });
 }
 
-// کاتێک هۆست یاری دەستپێدەکات (دابەشکردنی ڕۆڵەکان بە ئۆنلاین)
+// کاتێک هۆست یاری دەستپێدەکات
 document.getElementById('btn-start-game').addEventListener('click', () => {
     database.ref('rooms/' + roomCode + '/players').once('value', (snapshot) => {
         const players = snapshot.val();
@@ -123,12 +122,10 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
 
         const chosenLocation = locations[Math.floor(Math.random() * locations.length)];
         
-        // سەرەتا هەمووان دەکەینە هاووڵاتی و شوێنەکەیان دەدەینێ
         playerIds.forEach(id => {
             players[id].role = chosenLocation;
         });
         
-        // دیاریکردنی کوژەرەکان بە هەڕەمەکی
         let assigned = 0;
         while(assigned < killerCount) {
             const randId = playerIds[Math.floor(Math.random() * playerCount)];
@@ -138,7 +135,6 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
             }
         }
         
-        // نوێکردنەوەی داتابەیس بۆ دەستپێکردنی یاری لای هەمووان
         database.ref('rooms/' + roomCode).update({
             status: "started",
             gameTime: gameTime,
@@ -147,14 +143,33 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
     });
 });
 
-// گوێگرتن لە بارودۆخی یاری لای یاریزانە ئاساییەکان
+// وەرگێڕانی کارت بۆ بینینی ڕۆڵەکە
+document.getElementById('card').addEventListener('click', () => {
+    cardInner.classList.toggle('flipped');
+    
+    if (isHost && !gameTimer) {
+        database.ref('rooms/' + roomCode).once('value', (snapshot) => {
+            const roomData = snapshot.val();
+            if (roomData && roomData.status === "started") {
+                const gameTime = roomData.gameTime || 5;
+                const endTime = Date.now() + (gameTime * 60 * 1000);
+                
+                database.ref('rooms/' + roomCode).update({
+                    status: "playing",
+                    endTime: endTime
+                });
+            }
+        });
+    }
+});
+
+// ڕووداوەکانی ناو یاری کاتێک داتابەیس نوێ دەبێتەوە
 function listenToGameStatus() {
     database.ref('rooms/' + roomCode).on('value', (snapshot) => {
         const roomData = snapshot.val();
         if(!roomData) return;
         
-        if(roomData.status === "started" && roleScreen.classList.contains('hidden') && gameScreen.classList.contains('hidden')) {
-            // پیشاندانی کارتی ڕۆڵەکە
+        if(roomData.status === "started" && roleScreen.classList.contains('hidden')) {
             hostScreen.classList.add('hidden');
             joinScreen.classList.add('hidden');
             roleScreen.classList.remove('hidden');
@@ -169,35 +184,12 @@ function listenToGameStatus() {
         }
         
         if(roomData.status === "waiting" && !gameScreen.classList.contains('hidden')) {
-            // ئەگەر یاری کۆتایی هات بگەڕێوە سەرەتا
             location.reload();
         }
     });
 }
 
-// وەرگێڕانی کارت و چوونە ناو یاری سەرەکی
-document.getElementById('card').addEventListener('click', () => {
-    if(!cardInner.classList.contains('flipped')) {
-        cardInner.classList.add('flipped');
-        
-        // ئەگەر هۆست بوو، دوای بینینی کارتەکە با کاتژمێری گشتی دەستپێبکات لای هەمووان
-        if(isHost) {
-            setTimeout(() => {
-                database.ref('rooms/' + roomCode).once('value', (snapshot) => {
-                    const gameTime = snapshot.val().gameTime;
-                    const endTime = Date.now() + (gameTime * 60 * 1000);
-                    database.ref('rooms/' + roomCode).update({
-                        status: "playing",
-                        endTime: endTime
-                    });
-                });
-            }, 2000);
-        }
-    }
-});
-
 function startLocalTimer(endTime) {
-    // پیشاندانی لیستی شوێنەکان
     const listDiv = document.getElementById('locations-list');
     listDiv.innerHTML = '';
     locations.forEach(loc => {
@@ -224,9 +216,22 @@ function startLocalTimer(endTime) {
 
 // کۆتایی هێنان بە یاری
 document.getElementById('btn-end-game').addEventListener('click', () => {
-    if(isHost) {
-        database.ref('rooms/' + roomCode).remove(); // سڕینەوەی ژوورەکە لە فایەربەیس
-        location.reload();
+    if (isHost) {
+        database.ref('rooms/' + roomCode + '/players').once('value', (snapshot) => {
+            const players = snapshot.val();
+            if (players) {
+                for (let id in players) {
+                    players[id].role = "";
+                }
+            }
+            database.ref('rooms/' + roomCode).set({
+                status: "waiting",
+                killerCount: 1,
+                gameTime: 5,
+                location: "",
+                players: players
+            });
+        });
     } else {
         location.reload();
     }
