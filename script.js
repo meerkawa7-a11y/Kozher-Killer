@@ -13,8 +13,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-const locations = ["فڕۆکەخانە", "نەخۆشخانە", "بانک", "قوتابخانە", "سینەما", "چێشتخانە", "هۆتێل", "کەنار دەریا", "وێستگەی شەمەندەفەر", "مۆزەخانە", "سەربازگە", "سۆپەرمارکێت", "پۆلیسخانە", "پارک"];
+// لیستی کەتەگۆرییەکان و وشەکانی ناو هەر دانەیەک
+const gameData = {
+    all: ["فڕۆکەخانە", "نەخۆشخانە", "بانک", "قوتابخانە", "سینەما", "چێشتخانە", "هۆتێل", "کەنار دەریا", "وێستگەی شەمەندەفەر", "مۆزەخانە", "سەربازگە", "سۆپەرمارکێت", "پۆلیسخانە", "پارک"],
+    foods: ["کباب", "پیتزا", "بێەرگەر", "یاپراخ", "بریانی", "شۆربا", "کنتاکی", "فڵافل", "کێک", "ئایسکریم", "چای", "قاوە"],
+    countries: ["کوردستان", "عێراق", "تورکیا", "ئێران", "بەکۆتایی (ئەڵمانیا)", "بەریتانیا", "ئەمەریکا", "فەڕەنسا", "ئیتاڵیا", "ژاپۆن", "میسر", "سعودیە"],
+    movies: ["باتمان", "سوپەرمان", "سپایدەرمان", "تایتانیک", "تۆم و جێری", "هاری پۆتەر", "شێری پاشا", "مێستەربین", "جۆکەر", "نارۆتۆ"]
+};
 
+// ئەم دێڕەش بکە بە لێت (let) چونکە دەگۆڕێت بەپێی کەتەگۆری
+let currentLocations = gameData.all;
 let myName = "";
 let roomCode = "";
 let isHost = false;
@@ -34,30 +42,47 @@ function generateRoomCode() {
     return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-// کاتێک هۆست ژوور دروست دەکات
-document.getElementById('btn-create-mode').addEventListener('click', () => {
-    myName = document.getElementById('player-name').value.trim();
-    if(!myName) return alert("تکایە سەرەتا ناوی خۆت بنووسە!");
-    
-    roomCode = generateRoomCode();
-    isHost = true;
-    myId = "host_" + Date.now();
-    
-    document.getElementById('host-room-code').textContent = roomCode;
-    mainScreen.classList.add('hidden');
-    hostScreen.classList.remove('hidden');
-    
-    database.ref('rooms/' + roomCode).set({
-        status: "waiting",
-        killerCount: 1,
-        gameTime: 5,
-        location: ""
+// کاتێک هۆست یاری دەستپێدەکات بە کەتەگۆری دیاریکراوەوە
+document.getElementById('btn-start-game').addEventListener('click', () => {
+    database.ref('rooms/' + roomCode + '/players').once('value', (snapshot) => {
+        const players = snapshot.val();
+        const playerIds = Object.keys(players);
+        const playerCount = playerIds.length;
+        const killerCount = parseInt(document.getElementById('killer-count').value);
+        const gameTime = parseInt(document.getElementById('game-time').value);
+        
+        // وەرگرتنی کەتەگۆری هەڵبژێردراو
+        const selectedCategory = document.getElementById('category-select').value;
+        currentLocations = gameData[selectedCategory]; // گۆڕینی وشەکان بۆ کەتەگۆرییە نوێیەکە
+
+        if(playerCount < 3) return alert("پێویستە لانی کەم ٣ یاریزان لە ژوورەکەدا بن!");
+        if(killerCount >= playerCount) return alert("نابێت ژمارەی کوژەرەکان لە یاریزانەکان زیاتر بێت!");
+
+        // هەڵبژاردنی یەک وشەی ڕاندۆم لەو کەتەگۆرییەی دیاریکراوە
+        const chosenLocation = currentLocations[Math.floor(Math.random() * currentLocations.length)];
+        
+        playerIds.forEach(id => {
+            players[id].role = chosenLocation;
+        });
+        
+        let assigned = 0;
+        while(assigned < killerCount) {
+            const randId = playerIds[Math.floor(Math.random() * playerCount)];
+            if(players[randId].role !== "تۆ کوژەریت! (Kozher)") {
+                players[randId].role = "تۆ کوژەریت! (Kozher)";
+                assigned++;
+            }
+        }
+        
+        // پاشەکەوتکردنی کەتەگۆرییەکە لە داتابەیس تا یاریزانەکانی تریش بیبینن
+        database.ref('rooms/' + roomCode).update({
+            status: "started",
+            gameTime: gameTime,
+            category: selectedCategory, // ناردنی ناوی کەتەگۆری بۆ داتابەیس
+            players: players
+        });
     });
-    
-    database.ref('rooms/' + roomCode + '/players/' + myId).set({ name: myName, role: "" });
-    listenToPlayers();
-    listenToGameStatus();
-});
+});;
 
 // کاتێک یاریزان کلیک دەکات بچێتە ناو ژوورێک
 document.getElementById('btn-join-mode').addEventListener('click', () => {
@@ -190,10 +215,17 @@ function listenToGameStatus() {
 }
 
 function startLocalTimer(endTime) {
-    const listDiv = document.getElementById('locations-list');
-    listDiv.innerHTML = '';
-    locations.forEach(loc => {
-        listDiv.innerHTML += `<div class="location-item">${loc}</div>`;
+    // سەرەتا دڵنیا دەبینەوە کە کەتەگۆرییە ڕاستەکە دەخوێنێتەوە لە داتابەیسەوە
+    database.ref('rooms/' + roomCode).once('value', (snapshot) => {
+        const roomData = snapshot.val();
+        const cat = roomData.category || "all";
+        currentLocations = gameData[cat];
+
+        const listDiv = document.getElementById('locations-list');
+        listDiv.innerHTML = '';
+        currentLocations.forEach(loc => {
+            listDiv.innerHTML += `<div class="location-item">${loc}</div>`;
+        });
     });
 
     clearInterval(gameTimer);
